@@ -1,6 +1,9 @@
+using System.Text;
 using MicroCommerce.Application;
 using MicroCommerce.Infrastructure;
 using MicroCommerce.WebAPI.Middlewares;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,31 +12,72 @@ var builder = WebApplication.CreateBuilder(args);
 // Service Registration (Dependency Injection)
 // =====================================================
 
-// Register Application layer services (MediatR, AutoMapper, FluentValidation)
 builder.Services.AddApplicationServices();
-
-// Register Infrastructure layer services (EF Core, Repositories, UoW)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// Controllers
-builder.Services.AddControllers();
+// Authentication & JWT Configuration
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]!);
 
-// Swagger / OpenAPI
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidateAudience = true,
+        ValidAudience = jwtSettings["Audience"],
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "MicroCommerce API",
         Version = "v1",
-        Description = "A modern Micro-Commerce E-Commerce Backend API built with .NET 8 and Clean Architecture.",
-        Contact = new OpenApiContact
+        Description = "E-Commerce Backend with Clean Architecture & Identity."
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
         {
-            Name = "MicroCommerce Team"
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
         }
     });
 
-    // Include XML comments for better Swagger documentation
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -42,14 +86,11 @@ builder.Services.AddSwaggerGen(options =>
     }
 });
 
-// CORS (ready for future frontend integration)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
 
@@ -59,26 +100,25 @@ var app = builder.Build();
 // Middleware Pipeline
 // =====================================================
 
-// Global exception handling (must be first in pipeline)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Swagger (available in all environments for development convenience)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "MicroCommerce API v1");
-        options.RoutePrefix = string.Empty; // Swagger at root URL
+        options.RoutePrefix = string.Empty;
     });
 }
 
 app.UseHttpsRedirection();
-
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+

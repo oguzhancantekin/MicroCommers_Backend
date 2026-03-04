@@ -1,17 +1,16 @@
 using MicroCommerce.Application.Common.Interfaces;
+using MicroCommerce.Domain.Entities;
 using MicroCommerce.Domain.Interfaces;
+using MicroCommerce.Infrastructure.Identity;
 using MicroCommerce.Infrastructure.Persistence;
 using MicroCommerce.Infrastructure.Persistence.Repositories;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MicroCommerce.Infrastructure;
 
-/// <summary>
-/// Extension method for registering Infrastructure layer services.
-/// Configures EF Core with PostgreSQL and registers repositories.
-/// </summary>
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
@@ -21,6 +20,19 @@ public static class DependencyInjection
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+
+        // Identity Configuration
+        services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+        {
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequiredLength = 6;
+        })
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders();
+
+        // Register Identity Service
+        services.AddScoped<IIdentityService, IdentityService>();
 
         // Register IApplicationDbContext
         services.AddScoped<IApplicationDbContext>(provider =>

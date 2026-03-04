@@ -1,6 +1,7 @@
 using MicroCommerce.Application.Common.Interfaces;
 using MicroCommerce.Domain.Common;
 using MicroCommerce.Domain.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace MicroCommerce.Infrastructure.Persistence;
@@ -10,7 +11,7 @@ namespace MicroCommerce.Infrastructure.Persistence;
 /// Implements IApplicationDbContext for Application layer abstraction.
 /// Automatically sets audit fields on SaveChanges.
 /// </summary>
-public class ApplicationDbContext : DbContext, IApplicationDbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {

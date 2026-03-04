@@ -3,6 +3,7 @@ using MicroCommerce.Application.DTOs;
 using MicroCommerce.Application.Features.Products.Commands.CreateProduct;
 using MicroCommerce.Application.Features.Products.Queries.GetAllProducts;
 using MicroCommerce.WebAPI.Middlewares;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MicroCommerce.WebAPI.Controllers;
@@ -40,6 +41,7 @@ public class ProductsController : ControllerBase
     /// </summary>
     /// <param name="command">Product creation data</param>
     /// <returns>The ID of the created product</returns>
+    [Authorize]
     [HttpPost]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
